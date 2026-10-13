@@ -32,6 +32,8 @@ export interface BuildCommandOptions {
   autorouterPhase?: string
   autorouterTimeout?: string
   autorouterDebugDir?: string
+  autorouterModule?: string
+  autorouterModuleName?: string
   autorouterDumpSrj?: string | boolean
   solverDebug?: boolean
   solverDebugDir?: string

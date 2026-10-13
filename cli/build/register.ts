@@ -192,6 +192,14 @@ export const registerBuild = (program: Command) => {
       "Log autorouting phases and write unrouted/per-phase PNG artifacts",
     )
     .option(
+      "--autorouter-module <path|package>",
+      "Use a custom autorouter module exporting createAutorouter(simpleRouteJson); boards select it via autorouter=<name> (set automatically unless a board/--inject-props overrides it)",
+    )
+    .option(
+      "--autorouter-module-name <name>",
+      "Name registered in platformConfig.autorouterMap for --autorouter-module (default: custom)",
+    )
+    .option(
       "--autorouter-phase <name>",
       "Enable autorouting debugging through the named phase",
     )
@@ -431,11 +439,19 @@ export const registerBuild = (program: Command) => {
           resolvedOptions?.kicadProjectZip ||
           resolvedOptions?.kicadLibrary
 
-        const injectedProps = parseInjectedProps({
+        let injectedProps = parseInjectedProps({
           injectProps: resolvedOptions?.injectProps,
           injectPropsFile: resolvedOptions?.injectPropsFile,
           projectDir,
         })
+        const autorouterModuleName =
+          resolvedOptions?.autorouterModuleName ?? "custom"
+        if (resolvedOptions?.autorouterModule) {
+          injectedProps = {
+            ...injectedProps,
+            autorouter: injectedProps?.autorouter ?? autorouterModuleName,
+          }
+        }
 
         // Prepare build options for reuse
         const {
@@ -451,6 +467,8 @@ export const registerBuild = (program: Command) => {
           ignorePlacementDrc: resolvedOptions?.ignorePlacementDrc,
           ignoreRoutingDrc: resolvedOptions?.ignoreRoutingDrc,
           platformConfig,
+          autorouterModule: resolvedOptions?.autorouterModule,
+          autorouterModuleName,
           profile: resolvedOptions?.profile,
           injectedProps,
           generatePreviewAssets: false,

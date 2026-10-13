@@ -27,6 +27,8 @@ type BuildJob = {
     ignoreWarnings?: boolean
   } & DrcIgnoreOptions & {
       platformConfig?: PlatformConfig
+      autorouterModule?: string
+      autorouterModuleName?: string
       profile?: boolean
       injectedProps?: Record<string, unknown>
       autorouterDiagnostics?: AutorouterDiagnosticsOptions

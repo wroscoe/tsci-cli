@@ -5,6 +5,7 @@ import type { AnyCircuitElement } from "circuit-json"
 import kleur from "kleur"
 import { analyzeCircuitJson } from "lib/shared/circuit-json-diagnostics"
 import { generateCircuitJson } from "lib/shared/generate-circuit-json"
+import { withAutorouterModule } from "lib/shared/load-autorouter-module"
 import { getPlatformConfigWithCliDefaults } from "lib/shared/get-platform-config-with-cli-defaults"
 import type { AutorouterDiagnosticsOptions } from "lib/shared/autorouter-diagnostics"
 import type { SolverDiagnosticsOptions } from "lib/shared/solver-diagnostics"
@@ -33,6 +34,8 @@ export const buildFile = async (
     ignoreWarnings?: boolean
   } & DrcIgnoreOptions & {
       platformConfig?: PlatformConfig
+      autorouterModule?: string
+      autorouterModuleName?: string
       injectedProps?: Record<string, unknown>
       autorouterDiagnostics?: AutorouterDiagnosticsOptions
       solverDiagnostics?: SolverDiagnosticsOptions
@@ -54,7 +57,11 @@ export const buildFile = async (
 
     // Get complete platform config with kicad_mod support
     const platformConfigWithCliDefaults = getPlatformConfigWithCliDefaults(
-      options?.platformConfig,
+      await withAutorouterModule(options?.platformConfig, {
+        autorouterModule: options?.autorouterModule,
+        autorouterModuleName: options?.autorouterModuleName,
+        projectDir,
+      }),
       { projectDir },
     )
 

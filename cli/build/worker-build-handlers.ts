@@ -3,6 +3,7 @@ import path from "node:path"
 import type { PlatformConfig } from "@tscircuit/props"
 import type { AnyCircuitElement } from "circuit-json"
 import { loadRuntimeProjectConfig } from "lib/project-config"
+import { withAutorouterModule } from "lib/shared/load-autorouter-module"
 import { analyzeCircuitJson } from "../../lib/shared/circuit-json-diagnostics"
 import { generateCircuitJson } from "../../lib/shared/generate-circuit-json"
 import { getPlatformConfigWithCliDefaults } from "../../lib/shared/get-platform-config-with-cli-defaults"
@@ -50,9 +51,16 @@ export const handleBuildFile = async (
     await registerStaticAssetLoaders(undefined, projectDir)
 
     const projectConfig = await loadRuntimeProjectConfig(projectDir)
-    const platformConfig = mergePlatformConfigs(
-      projectConfig?.platformConfig,
-      options?.platformConfig as PlatformConfig,
+    const platformConfig = await withAutorouterModule(
+      mergePlatformConfigs(
+        projectConfig?.platformConfig,
+        options?.platformConfig as PlatformConfig,
+      ),
+      {
+        autorouterModule: options?.autorouterModule,
+        autorouterModuleName: options?.autorouterModuleName,
+        projectDir,
+      },
     )
     const platformConfigWithCliDefaults = getPlatformConfigWithCliDefaults(
       platformConfig,
