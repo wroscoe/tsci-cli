@@ -16,6 +16,8 @@ export interface BuildCommandOptions {
   ignoreConfig?: boolean
   ci?: boolean
   site?: boolean
+  bundleJscdn?: boolean
+  jscdnBaseUrl?: string
   transpile?: boolean
   previewImages?: boolean
   allImages?: boolean

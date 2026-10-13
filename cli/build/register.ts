@@ -16,6 +16,7 @@ import type { SolverDiagnosticsOptions } from "lib/shared/solver-diagnostics"
 import { convertToKicadLibrary } from "lib/shared/convert-to-kicad-library"
 import { getEntrypoint } from "lib/shared/get-entrypoint"
 import { mergePlatformConfigs } from "lib/shared/platform-config-utils"
+import { copyJscdnFiles, getSiteJscdnDir } from "lib/shared/jscdn-directory"
 import {
   type StaticBuildFileReference,
   getStaticIndexHtmlFile,
@@ -127,6 +128,14 @@ export const registerBuild = (program: Command) => {
     .option("--routing-disabled", "Disable routing during circuit generation")
     .option("--disable-parts-engine", "Disable the parts engine")
     .option("--site", "Generate a static site in the dist directory")
+    .option(
+      "--bundle-jscdn",
+      "Copy TSCIRCUIT_JSCDN_DIR into dist/jscdn (requires --site)",
+    )
+    .option(
+      "--jscdn-base-url <url>",
+      "Set the JS CDN base URL for dynamic imports in the generated site",
+    )
     .option("--transpile", "Transpile the entry file to JavaScript")
     .option("--preview-images", "Generate preview images in the dist directory")
     .option(
@@ -289,6 +298,13 @@ export const registerBuild = (program: Command) => {
         if (handled) {
           return
         }
+
+        if (resolvedOptions?.bundleJscdn && !resolvedOptions?.site) {
+          throw new Error("--bundle-jscdn requires --site")
+        }
+        const jscdnDir = resolvedOptions?.site
+          ? getSiteJscdnDir(resolvedOptions?.bundleJscdn)
+          : undefined
 
         // When --kicad-project is used without a file argument and kicadProjectEntrypointPath is set,
         // use that as the file to build
@@ -953,6 +969,12 @@ export const registerBuild = (program: Command) => {
           const packageName = fs.existsSync(pkgJsonPath)
             ? JSON.parse(fs.readFileSync(pkgJsonPath, "utf-8")).name
             : undefined
+          const jscdnBaseUrl =
+            resolvedOptions?.jscdnBaseUrl ?? (jscdnDir ? "./jscdn" : undefined)
+          if (jscdnDir) {
+            console.log("Copying prepared JS CDN packages into dist/jscdn...")
+            await copyJscdnFiles(jscdnDir, path.join(distDir, "jscdn"))
+          }
           const indexHtml = getStaticIndexHtmlFile({
             files: staticFileReferences,
             standaloneScriptSrc,
@@ -960,6 +982,7 @@ export const registerBuild = (program: Command) => {
               ? normalizeRelativePath(projectDir, siteDefaultComponentPath)
               : undefined,
             packageName: packageName || path.basename(projectDir),
+            jscdnBaseUrl,
           })
           fs.writeFileSync(path.join(distDir, "index.html"), indexHtml)
         }

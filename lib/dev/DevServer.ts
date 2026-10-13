@@ -99,6 +99,7 @@ export class DevServer {
 
   /** Whether to enable the KiCad PCM proxy server */
   kicadPcm: boolean
+  jscdnDir?: string
   autorouterDebug: boolean
   autorouterPhase?: string
   /** Multi-board mode (prerouted-only): serve these boards read-only */
@@ -134,6 +135,7 @@ export class DevServer {
     componentFilePath,
     projectDir,
     kicadPcm,
+    jscdnDir,
     autorouterDebug,
     autorouterPhase,
     boards,
@@ -142,6 +144,7 @@ export class DevServer {
     componentFilePath: string
     projectDir?: string
     kicadPcm?: boolean
+    jscdnDir?: string
     autorouterDebug?: boolean
     autorouterPhase?: string
     boards?: ResolvedBoard[]
@@ -154,6 +157,7 @@ export class DevServer {
     this.componentFilePath = componentFilePath
     this.projectDir = projectDir ?? path.dirname(componentFilePath)
     this.kicadPcm = kicadPcm ?? false
+    this.jscdnDir = jscdnDir
     this.autorouterDebug = autorouterDebug ?? false
     this.autorouterPhase = autorouterPhase?.trim() || undefined
     const projectConfig = loadProjectConfig(this.projectDir)
@@ -171,6 +175,7 @@ export class DevServer {
         this.componentFilePath,
       ),
       kicadPcm: this.kicadPcm,
+      jscdnDir: this.jscdnDir,
       projectDir: this.projectDir,
       entryFile: this.componentFilePath,
       boards: this.boards,

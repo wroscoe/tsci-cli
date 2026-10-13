@@ -19,6 +19,7 @@ import {
 import { createLocalCacheEngine } from "../shared/get-platform-config-with-cli-defaults"
 import { getIndex } from "../site/getIndex"
 import { createKicadPcmProxy } from "./kicad-pcm-proxy"
+import { getJscdnDir, isWithinDirectory } from "../shared/jscdn-directory"
 
 const RUNFRAME_CACHE_PATH = "/api/cache"
 
@@ -58,6 +59,7 @@ export const createHttpServer = async ({
   projectDir,
   entryFile,
   boards,
+  jscdnDir,
 }: {
   port?: number
   defaultMainComponentPath?: string
@@ -65,8 +67,10 @@ export const createHttpServer = async ({
   projectDir?: string
   entryFile?: string
   boards?: ResolvedBoard[]
+  jscdnDir?: string
 }) => {
   const multiBoardRouter = boards ? createMultiBoardRouter({ boards }) : null
+  const preparedJscdnDir = getJscdnDir(jscdnDir)
   const fileServerHandler = getNodeHandler(winterspecBundle as any, {})
   const localCacheEngine = projectDir
     ? createLocalCacheEngine(path.join(projectDir, ".tscircuit", "cache"))
@@ -81,6 +85,39 @@ export const createHttpServer = async ({
   const server = http.createServer(async (req, res) => {
     const requestHost = req.headers.host ?? `localhost:${port}`
     const url = new URL(req.url!, `http://${requestHost}`)
+
+    if (preparedJscdnDir && url.pathname.startsWith("/jscdn/")) {
+      if (req.method !== "GET" && req.method !== "HEAD") {
+        res.writeHead(405, { Allow: "GET, HEAD" })
+        res.end()
+        return
+      }
+      try {
+        const filePath = fs.realpathSync(
+          path.join(
+            preparedJscdnDir,
+            decodeURIComponent(url.pathname.slice("/jscdn/".length)),
+          ),
+        )
+        if (!isWithinDirectory(fs.realpathSync(preparedJscdnDir), filePath))
+          throw new Error("Invalid JS CDN path")
+        const extension = path.extname(filePath)
+        const contentType =
+          path.basename(filePath) === "+esm" ||
+          [".js", ".mjs"].includes(extension)
+            ? "application/javascript"
+            : extension === ".wasm"
+              ? "application/wasm"
+              : "application/octet-stream"
+        const content = fs.readFileSync(filePath)
+        res.writeHead(200, { "Content-Type": contentType })
+        res.end(content)
+      } catch {
+        res.writeHead(404)
+        res.end("Not found")
+      }
+      return
+    }
 
     if (boards && !isMultiBoardPathAllowed(url.pathname)) {
       res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" })
@@ -267,6 +304,7 @@ export const createHttpServer = async ({
       const html = await getIndex(
         defaultMainComponentPath,
         fileServerApiBaseUrl,
+        preparedJscdnDir ? "/jscdn" : undefined,
       )
       res.writeHead(200, { "Content-Type": "text/html" })
       res.end(html)

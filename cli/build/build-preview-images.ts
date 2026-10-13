@@ -2,7 +2,7 @@ import { convertCircuitJsonToPcbSvg } from "lib/shared/render-pcb-svg"
 import fs from "node:fs"
 import path from "node:path"
 import type { AnyCircuitElement } from "circuit-json"
-import { renderCircuitJsonTo3dPng } from "circuit-json-to-3d-png"
+import { render3dThumbnail } from "lib/shared/render-3d-thumbnail"
 import { convertCircuitJsonToSchematicSvg } from "circuit-to-svg"
 import type { PcbSnapshotSettings } from "lib/project-config/project-config-schema"
 import { convertSvgToPngBuffer } from "lib/shared/convert-svg-to-png"
@@ -43,6 +43,13 @@ const generatePreviewAssets = async ({
   }
 
   fs.mkdirSync(outputDir, { recursive: true })
+  const hasSchematic = circuitJson.some((e) => e.type.startsWith("schematic_"))
+  if (!hasSchematic) {
+    if (imageFormats.schematicSvgs)
+      fs.rmSync(path.join(outputDir, "schematic.svg"), { force: true })
+    if (imageFormats.schematicPngs)
+      fs.rmSync(path.join(outputDir, "schematic.png"), { force: true })
+  }
 
   if (imageFormats.pcbSvgs) {
     try {
@@ -75,7 +82,7 @@ const generatePreviewAssets = async ({
     }
   }
 
-  if (imageFormats.schematicSvgs) {
+  if (imageFormats.schematicSvgs && hasSchematic) {
     try {
       console.log(`${prefix}Generating schematic SVG...`)
       const schematicSvg = convertCircuitJsonToSchematicSvg(circuitJson)
@@ -90,7 +97,7 @@ const generatePreviewAssets = async ({
     }
   }
 
-  if (imageFormats.schematicPngs) {
+  if (imageFormats.schematicPngs && hasSchematic) {
     try {
       console.log(`${prefix}Generating schematic PNG...`)
       const schematicSvg = convertCircuitJsonToSchematicSvg(circuitJson)
@@ -130,7 +137,7 @@ const generatePreviewAssets = async ({
 
     try {
       console.log(`${prefix}Generating 3D PNG...`)
-      const pngBuffer = await renderCircuitJsonTo3dPng(circuitJson)
+      const pngBuffer = await render3dThumbnail(circuitJson)
       fs.writeFileSync(outputPath, Buffer.from(pngBuffer))
       console.log(`${prefix}Written 3d.png`)
     } catch (error) {

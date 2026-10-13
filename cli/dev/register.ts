@@ -53,6 +53,7 @@ export const registerDev = (program: Command) => {
       "Serve multiple prerouted boards from a manifest JSON or a glob of board directories (prerouted path is resolved at startup)",
     )
     .option("--kicad-pcm", "Enable KiCad PCM proxy server at /pcm/*")
+    .option("--jscdn-dir <path>", "Serve prepared JS CDN packages at /jscdn/*")
     .option(
       "--autorouter-debug",
       "Log autorouting diagnostics emitted by the dev runframe",
@@ -80,6 +81,7 @@ export const registerDev = (program: Command) => {
           port: string
           boards?: string
           kicadPcm?: boolean
+          jscdnDir?: string
           autorouterDebug?: boolean
           autorouterPhase?: string
           autorouterTimeout?: string
@@ -167,6 +169,7 @@ export const registerDev = (program: Command) => {
           componentFilePath: absolutePath,
           projectDir,
           kicadPcm: options.kicadPcm,
+          jscdnDir: options.jscdnDir,
           autorouterDebug:
             options.autorouterDebug || autorouterPhase !== undefined,
           autorouterPhase,

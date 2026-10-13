@@ -2,7 +2,7 @@ import { convertCircuitJsonToPcbSvg } from "lib/shared/render-pcb-svg"
 import fs from "node:fs"
 import path from "node:path"
 import type { AnyCircuitElement } from "circuit-json"
-import { renderCircuitJsonTo3dPng } from "circuit-json-to-3d-png"
+import { render3dThumbnail } from "lib/shared/render-3d-thumbnail"
 import { convertCircuitJsonToGltf } from "circuit-json-to-gltf"
 import { circuitJsonToStep } from "circuit-json-to-step"
 import { convertCircuitJsonToSchematicSvg } from "circuit-to-svg"
@@ -80,6 +80,7 @@ export const writeStepFromCircuitJson = async (
   stepOutputPath: string,
 ) => {
   const stepContent = await circuitJsonToStep(circuitJson, {
+    exportMode: "pcb",
     includeComponents: true,
     includeExternalMeshes: true,
     fsMap: await loadLocalStepModelFsMap(circuitJson),
@@ -99,6 +100,13 @@ export const writeImageAssetsFromCircuitJson = async (
 ) => {
   const { outputDir, imageFormats, pcbSnapshotSettings } = options
   fs.mkdirSync(outputDir, { recursive: true })
+  const hasSchematic = circuitJson.some((e) => e.type.startsWith("schematic_"))
+  if (!hasSchematic) {
+    if (imageFormats.schematicSvgs)
+      fs.rmSync(path.join(outputDir, "schematic.svg"), { force: true })
+    if (imageFormats.schematicPngs)
+      fs.rmSync(path.join(outputDir, "schematic.png"), { force: true })
+  }
 
   if (imageFormats.pcbSvgs) {
     const pcbSvg = convertCircuitJsonToPcbSvg(circuitJson, pcbSnapshotSettings)
@@ -113,7 +121,7 @@ export const writeImageAssetsFromCircuitJson = async (
     )
   }
 
-  if (imageFormats.schematicSvgs) {
+  if (imageFormats.schematicSvgs && hasSchematic) {
     const schematicSvg = convertCircuitJsonToSchematicSvg(circuitJson)
     fs.writeFileSync(
       path.join(outputDir, "schematic.svg"),
@@ -122,7 +130,7 @@ export const writeImageAssetsFromCircuitJson = async (
     )
   }
 
-  if (imageFormats.schematicPngs) {
+  if (imageFormats.schematicPngs && hasSchematic) {
     const schematicSvg = convertCircuitJsonToSchematicSvg(circuitJson)
     fs.writeFileSync(
       path.join(outputDir, "schematic.png"),
@@ -133,7 +141,7 @@ export const writeImageAssetsFromCircuitJson = async (
   writeSimulationSvgAssetsFromCircuitJson(circuitJson, outputDir, imageFormats)
 
   if (imageFormats.threeDPngs) {
-    const pngBuffer = await renderCircuitJsonTo3dPng(circuitJson)
+    const pngBuffer = await render3dThumbnail(circuitJson)
 
     fs.writeFileSync(path.join(outputDir, "3d.png"), Buffer.from(pngBuffer))
   }
