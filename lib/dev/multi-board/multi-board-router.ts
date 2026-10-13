@@ -104,3 +104,17 @@ export const createMultiBoardRouter = ({
     return false
   }
 }
+
+/**
+ * Multi-board mode serves read-only prerouted boards. Everything the landing
+ * and runframe pages load is listed here; any other path (notably the
+ * single-board file-server write API under /api/files and /api/cache) is 404.
+ */
+export const isMultiBoardPathAllowed = (pathname: string): boolean =>
+  pathname === "/" ||
+  pathname === "/standalone.min.js" ||
+  pathname.startsWith("/b/") ||
+  pathname === "/api/boards" ||
+  pathname.startsWith("/api/boards.") ||
+  pathname.startsWith("/api/boards/") ||
+  /^\/boards\/[^/]+\/circuit\.json$/.test(pathname)

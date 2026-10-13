@@ -80,3 +80,5 @@ Test fixture provides:
 ## Runtime
 
 The CLI entrypoint (`cli/entrypoint.js`) selects between Bun and tsx as the TypeScript runner, preferring Bun when available. This allows hot-reload during development while maintaining Node.js compatibility.
+
+- Run bun test / bun run build via the sandbox: `tsci-box fork-dev test|build` (see ~/tools/tsci-box/README.md), never on the host.

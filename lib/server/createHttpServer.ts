@@ -12,7 +12,10 @@ import pkg from "../../package.json"
 // @ts-ignore
 import winterspecBundle from "@tscircuit/file-server/dist/bundle.js"
 import type { ResolvedBoard } from "../dev/multi-board/board-manifest"
-import { createMultiBoardRouter } from "../dev/multi-board/multi-board-router"
+import {
+  createMultiBoardRouter,
+  isMultiBoardPathAllowed,
+} from "../dev/multi-board/multi-board-router"
 import { createLocalCacheEngine } from "../shared/get-platform-config-with-cli-defaults"
 import { getIndex } from "../site/getIndex"
 import { createKicadPcmProxy } from "./kicad-pcm-proxy"
@@ -78,6 +81,12 @@ export const createHttpServer = async ({
   const server = http.createServer(async (req, res) => {
     const requestHost = req.headers.host ?? `localhost:${port}`
     const url = new URL(req.url!, `http://${requestHost}`)
+
+    if (boards && !isMultiBoardPathAllowed(url.pathname)) {
+      res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" })
+      res.end("Not found")
+      return
+    }
 
     if (url.pathname === RUNFRAME_CACHE_PATH) {
       const key = url.searchParams.get("key")

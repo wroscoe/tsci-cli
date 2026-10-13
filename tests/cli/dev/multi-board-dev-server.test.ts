@@ -68,7 +68,24 @@ test("multi-board dev server routes", async () => {
   expect(after.find((b) => b.id === "a").hasPrerouted).toBe(false)
   expect(after.find((b) => b.id === "b").hasPrerouted).toBe(true)
 
-  expect((await fetch(`${origin}/api/files/list`)).status).toBe(200)
+  // Single-board write/read API must not be exposed in multi-board mode
+  const upsert = await fetch(`${origin}/api/files/upsert`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      file_path: "../piezoboard/zz.txt",
+      text_content: "x",
+    }),
+  })
+  expect(upsert.status).toBe(404)
+  expect((await fetch(`${origin}/api/files/list`)).status).toBe(404)
+  expect(
+    (await fetch(`${origin}/api/cache?key=k`, { method: "POST", body: "x" }))
+      .status,
+  ).toBe(404)
+  expect((await fetch(`${origin}/api/boards.json`)).status).toBe(200)
+  expect((await fetch(`${origin}/`)).status).toBe(200)
+  expect((await fetch(`${origin}/standalone.min.js`)).status).toBe(200)
 }, 30_000)
 
 test("html generators", () => {
