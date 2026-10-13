@@ -11,6 +11,8 @@ import pkg from "../../package.json"
 
 // @ts-ignore
 import winterspecBundle from "@tscircuit/file-server/dist/bundle.js"
+import type { ResolvedBoard } from "../dev/multi-board/board-manifest"
+import { createMultiBoardRouter } from "../dev/multi-board/multi-board-router"
 import { createLocalCacheEngine } from "../shared/get-platform-config-with-cli-defaults"
 import { getIndex } from "../site/getIndex"
 import { createKicadPcmProxy } from "./kicad-pcm-proxy"
@@ -52,13 +54,16 @@ export const createHttpServer = async ({
   kicadPcm,
   projectDir,
   entryFile,
+  boards,
 }: {
   port?: number
   defaultMainComponentPath?: string
   kicadPcm?: boolean
   projectDir?: string
   entryFile?: string
+  boards?: ResolvedBoard[]
 }) => {
+  const multiBoardRouter = boards ? createMultiBoardRouter({ boards }) : null
   const fileServerHandler = getNodeHandler(winterspecBundle as any, {})
   const localCacheEngine = projectDir
     ? createLocalCacheEngine(path.join(projectDir, ".tscircuit", "cache"))
@@ -184,8 +189,10 @@ export const createHttpServer = async ({
       if (!explicitStandalonePath) {
         // Prefer the locally installed tscircuit version's bundle so `tsci dev`
         // automatically uses the version pinned in the project when available.
-        const localStandalonePath =
-          resolveLocalTscircuitStandalonePath(projectDir)
+        // Boards mode always uses the CLI-bundled runframe (static-list mode)
+        const localStandalonePath = boards
+          ? undefined
+          : resolveLocalTscircuitStandalonePath(projectDir)
         if (localStandalonePath) {
           try {
             const content = fs.readFileSync(localStandalonePath, "utf8")
@@ -201,8 +208,9 @@ export const createHttpServer = async ({
 
         // Otherwise use the bundle from the globally installed tscircuit (the one
         // that provides the `tsci` binary, set by tscircuit's cli.mjs).
-        const globalStandalonePath =
-          process.env.TSCIRCUIT_GLOBAL_STANDALONE_FILE_PATH
+        const globalStandalonePath = boards
+          ? undefined
+          : process.env.TSCIRCUIT_GLOBAL_STANDALONE_FILE_PATH
         if (globalStandalonePath) {
           try {
             const content = fs.readFileSync(globalStandalonePath, "utf8")
@@ -242,6 +250,8 @@ export const createHttpServer = async ({
       res.end()
       return
     }
+
+    if (multiBoardRouter && (await multiBoardRouter(url, req, res))) return
 
     if (url.pathname === "/") {
       const fileServerApiBaseUrl = `http://${req.headers.host}/api`

@@ -1,12 +1,14 @@
-import type { Command } from "commander"
 import * as fs from "node:fs"
 import * as net from "node:net"
 import * as path from "node:path"
-import { parseAutorouterPhaseName } from "lib/shared/autorouter-diagnostics"
-import { resolveDevTarget } from "./resolve-dev-target"
+import type { Command } from "commander"
 import kleur from "kleur"
 import { DevServer } from "lib/dev/DevServer"
+import { loadBoardManifest } from "lib/dev/multi-board/board-manifest"
 import { getVersion } from "lib/getVersion"
+import { parseAutorouterPhaseName } from "lib/shared/autorouter-diagnostics"
+import { ZodError } from "zod"
+import { resolveDevTarget } from "./resolve-dev-target"
 
 const isPortAvailable = (port: number): Promise<boolean> => {
   return new Promise((resolve) => {
@@ -46,6 +48,10 @@ export const registerDev = (program: Command) => {
     .description("Start development server for a package")
     .argument("[file]", "Path to the package file or directory")
     .option("-p, --port <number>", "Port to run server on", "3020")
+    .option(
+      "--boards <spec>",
+      "Serve multiple prerouted boards from a manifest JSON or a glob of board directories (prerouted path is resolved at startup)",
+    )
     .option("--kicad-pcm", "Enable KiCad PCM proxy server at /pcm/*")
     .option(
       "--autorouter-debug",
@@ -72,6 +78,7 @@ export const registerDev = (program: Command) => {
         file: string,
         options: {
           port: string
+          boards?: string
           kicadPcm?: boolean
           autorouterDebug?: boolean
           autorouterPhase?: string
@@ -88,6 +95,60 @@ export const registerDev = (program: Command) => {
             kleur.gray(`Port ${port} is in use, trying port ${port + 1}...`),
           )
           port += 1
+        }
+
+        if (options.boards) {
+          let boards: ReturnType<typeof loadBoardManifest>
+          try {
+            boards = loadBoardManifest(options.boards, process.cwd())
+          } catch (error) {
+            const msg =
+              error instanceof ZodError
+                ? error.issues
+                    .map((i) => `${i.path.join(".") || "(root)"}: ${i.message}`)
+                    .join("\n  ")
+                : error instanceof Error
+                  ? error.message
+                  : String(error)
+            console.error(kleur.red(`Error: ${msg}`))
+            return
+          }
+          if (
+            file ||
+            options.kicadPcm ||
+            options.autorouterDebug ||
+            options.autorouterPhase ||
+            options.autorouterTimeout ||
+            options.autorouterDebugDir ||
+            options.autorouterDumpSrj
+          ) {
+            console.warn(
+              kleur.yellow(
+                "Warning: --boards ignores the file argument, --kicad-pcm and --autorouter-* flags.",
+              ),
+            )
+          }
+          const first = boards[0]!
+          const server = new DevServer({
+            port,
+            componentFilePath: first.absEntry ?? first.absPreroutedJson,
+            projectDir: first.absDir,
+            boards,
+          })
+          await server.start()
+          console.log(
+            `\n  ${kleur.green(`@tscircuit/cli@${getVersion()}`)} ${kleur.gray("ready in")} ${kleur.white(`${Math.round(Date.now() - startTime)}ms`)}`,
+          )
+          console.log(
+            `\n  ${kleur.bold("➜ Local:")}   ${kleur.underline(kleur.cyan(`http://localhost:${port}/`))}`,
+          )
+          for (const b of boards) {
+            console.log(
+              `    ${kleur.gray(b.id.padEnd(20))} ${kleur.underline(kleur.cyan(`http://localhost:${port}/b/${encodeURIComponent(b.id)}`))}`,
+            )
+          }
+          console.log()
+          return
         }
 
         const target = await resolveDevTarget(file)

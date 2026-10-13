@@ -20,6 +20,7 @@ import { pushSnippet } from "lib/shared/push-snippet"
 import { shouldIgnorePath } from "lib/shared/should-ignore-path"
 import type { TypedKyInstance } from "typed-ky"
 import { getPackageFilePaths } from "./get-package-file-paths"
+import type { ResolvedBoard } from "./multi-board/board-manifest"
 
 const debug = Debug("tscircuit:devserver")
 
@@ -100,6 +101,8 @@ export class DevServer {
   kicadPcm: boolean
   autorouterDebug: boolean
   autorouterPhase?: string
+  /** Multi-board mode (prerouted-only): serve these boards read-only */
+  boards?: ResolvedBoard[]
 
   /**
    * The HTTP server that hosts the file server and event bus. You can use
@@ -133,6 +136,7 @@ export class DevServer {
     kicadPcm,
     autorouterDebug,
     autorouterPhase,
+    boards,
   }: {
     port: number
     componentFilePath: string
@@ -140,7 +144,12 @@ export class DevServer {
     kicadPcm?: boolean
     autorouterDebug?: boolean
     autorouterPhase?: string
+    boards?: ResolvedBoard[]
   }) {
+    if (boards && boards.length === 0) {
+      throw new Error("DevServer: boards must not be empty")
+    }
+    this.boards = boards
     this.port = port
     this.componentFilePath = componentFilePath
     this.projectDir = projectDir ?? path.dirname(componentFilePath)
@@ -164,8 +173,12 @@ export class DevServer {
       kicadPcm: this.kicadPcm,
       projectDir: this.projectDir,
       entryFile: this.componentFilePath,
+      boards: this.boards,
     })
     this.httpServer = server
+
+    // Multi-board phase 1 is prerouted-only: no file sync, no watcher
+    if (this.boards) return
 
     this.eventsWatcher = new EventsWatcher(`http://localhost:${this.port}`)
     this.eventsWatcher.start()
